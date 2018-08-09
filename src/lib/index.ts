@@ -128,7 +128,7 @@ export class Benchmark {
   protected result?: Result;
 
   constructor(options: Partial<Options> = {}) {
-    this.options = { ...options, ...DEFAULT_OPTIONS };
+    this.options = { ...DEFAULT_OPTIONS, ...options };
   }
 
   public addSync(title: string, fn: TaskSyncFunction): this {
