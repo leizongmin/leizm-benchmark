@@ -24,19 +24,22 @@ export const DEFAULT_OPTIONS: Options = {
 };
 
 export type TaskSyncFunction = () => any;
+export type TaskSyncFasterFunction = (count: number) => any;
 export type TaskAsyncFunction = () => Promise<any>;
 export type TaskCallbackFunction = (callback: () => void) => any;
 
 enum TaskFunctionType {
   Sync = 1,
-  Async = 2,
-  Callback = 3,
+  SyncFaster = 2,
+  Async = 3,
+  Callback = 4,
 }
 
 export interface TaskInfo {
   title: string;
   type: TaskFunctionType;
-  fn: TaskSyncFunction | TaskAsyncFunction | TaskCallbackFunction;
+  fn: TaskSyncFunction | TaskSyncFasterFunction | TaskAsyncFunction | TaskCallbackFunction;
+  params?: any;
 }
 
 export interface TaskResult {
@@ -63,6 +66,27 @@ function execSyncFunction(seconds: number, fn: TaskSyncFunction, concurrent: num
     while (true) {
       fn();
       count++;
+      const end = process.uptime();
+      if (end - start >= seconds) {
+        return resolve({ seconds: end - start, count });
+      }
+    }
+  });
+}
+
+function execSyncFasterFunction(
+  seconds: number,
+  fn: TaskSyncFasterFunction,
+  concurrent: number,
+  portionCount: number,
+): Promise<ExecTaskResult> {
+  return new Promise(resolve => {
+    if (concurrent !== 1) concurrent = 1;
+    const start = process.uptime();
+    let count = 0;
+    while (true) {
+      fn(portionCount);
+      count += portionCount;
       const end = process.uptime();
       if (end - start >= seconds) {
         return resolve({ seconds: end - start, count });
@@ -136,6 +160,11 @@ export class Benchmark {
     return this;
   }
 
+  public addSyncFaster(title: string, fn: TaskSyncFasterFunction, count: number = 10000): this {
+    this.list.push({ title, type: TaskFunctionType.SyncFaster, fn, params: count });
+    return this;
+  }
+
   public addAsync(title: string, fn: TaskAsyncFunction): this {
     this.list.push({ title, type: TaskFunctionType.Async, fn });
     return this;
@@ -154,6 +183,14 @@ export class Benchmark {
       switch (task.type) {
         case TaskFunctionType.Sync:
           result = await execSyncFunction(this.options.seconds, task.fn as TaskSyncFunction, this.options.concurrent);
+          break;
+        case TaskFunctionType.SyncFaster:
+          result = await execSyncFasterFunction(
+            this.options.seconds,
+            task.fn as TaskSyncFunction,
+            this.options.concurrent,
+            task.params,
+          );
           break;
         case TaskFunctionType.Async:
           result = await execAsyncFunction(this.options.seconds, task.fn as TaskAsyncFunction, this.options.concurrent);

@@ -17,6 +17,11 @@ const b = new Benchmark({ title: "Benchmark Example" });
 b.addAsync("async task", async () => await sleep(0))
   .addCallback("callback task", done => sleep(0).then(done))
   .addSync("sync task", () => 1 + 1)
+  .addSyncFaster("sync faster task", count => {
+    for (let i = 0; i < count; i++) {
+      // ... 针对性能损坏极小的同步任务，使用 for 来循环 count 次
+    }
+  })
   .run()
   .then(r => b.print(r))
   .catch(console.log);
