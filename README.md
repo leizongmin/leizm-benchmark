@@ -33,6 +33,8 @@ function sleep(ms: number): Promise<number> {
 }
 ```
 
+**注意：`addAsync()` 和 `addCallback()` 中的任务必须是真正的异步函数，否则可能造成进程卡死**
+
 ## License
 
 ```text
