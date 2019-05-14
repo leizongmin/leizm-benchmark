@@ -9,10 +9,17 @@ import Table from "cli-table";
 import platformInfo from "./platforminfo";
 import sleep from "./sleep";
 
+/**
+ * 性能测试选项
+ */
 export interface Options {
+  /** 标题 */
   title: string;
+  /** 每个任务执行时长 */
   seconds: number;
+  /** 并发数量（异步任务时有效） */
   concurrent: number;
+  /** 每个任务间隔 */
   delay: number;
 }
 
@@ -35,10 +42,17 @@ enum TaskFunctionType {
   Callback = 4,
 }
 
+/**
+ * 任务信息
+ */
 export interface TaskInfo {
+  /** 标题 */
   title: string;
+  /** 类型 */
   type: TaskFunctionType;
+  /** 任务函数 */
   fn: TaskSyncFunction | TaskSyncFasterFunction | TaskAsyncFunction | TaskCallbackFunction;
+  /** 任务参数 */
   params?: any;
 }
 
