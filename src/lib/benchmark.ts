@@ -162,9 +162,8 @@ export class Benchmark {
     }
     await Promise.all(waitList);
     workerList.forEach(w => w.kill());
-    resultList.forEach(r => log(r.list));
+    resultList.forEach((r, i) => log(`worker #${i + 1} result:`, r.list));
     this.result = mergeResults(resultList);
-    log(this.result.list);
     return this.result;
   }
 
@@ -222,13 +221,13 @@ export class Benchmark {
       console.log(colors.red("Please run benchmark firstly"));
       return this;
     }
-    const line = colors.gray("-".repeat(process.stdout.columns || 80));
+    const line = colors.gray("-".repeat(Math.min(80, process.stdout.columns || 80)));
     console.log("\n\n\n" + line);
     console.log(colors.bold.blue(this.options.title));
     console.log(line + "\n");
     console.log(colors.blue(platformInfo()));
     {
-      const t = new Table({ head: ["test", "rps", "ns/op", "spent"] });
+      const t = new Table({ head: ["test", "rps", "ns/op", "spent", "requests"] });
       const successTasks = result.list.filter(v => v.ok);
       successTasks.forEach(v => {
         const count = v.result!.count;
@@ -241,9 +240,10 @@ export class Benchmark {
             (rps * this.options.clusterCount).toFixed(1),
             nsop,
             `${(seconds / this.options.clusterCount).toFixed(3)}s`,
+            count,
           ]);
         } else {
-          t.push([v.task!.title, rps.toFixed(1), nsop, `${seconds.toFixed(3)}s`]);
+          t.push([v.task!.title, rps.toFixed(1), nsop, `${seconds.toFixed(3)}s`, count]);
         }
       });
       if (successTasks.length > 0) {
