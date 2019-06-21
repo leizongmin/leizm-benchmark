@@ -167,3 +167,27 @@ export async function execCallbackFunction(
   const end = process.uptime();
   return { seconds: end - start, count };
 }
+
+/**
+ * 合并多个结果
+ * @param list
+ */
+export function mergeResults(list: Result[]): Result {
+  if (list.length < 1) throw new Error("cannot merge empty results");
+  const ret: Result = { ...list[0], list: [] };
+  list[0].list.forEach((v, i) => {
+    ret.list[i] = { ok: true, message: "success", result: { count: 0, seconds: 0 } };
+    if (!ret.list[i].task) {
+      ret.list[i].task = v.task;
+    }
+  });
+  list.forEach(r => {
+    r.list.forEach((v, i) => {
+      if (ret.list[i].ok) {
+        ret.list[i].result!.seconds += r.list[i].result!.seconds;
+        ret.list[i].result!.count += r.list[i].result!.count;
+      }
+    });
+  });
+  return ret;
+}

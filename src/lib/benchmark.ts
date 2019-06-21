@@ -4,6 +4,7 @@
  * @author Zongmin Lei <leizongmin@gmail.com>
  */
 
+import cluster from "cluster";
 import colors from "colors";
 import Table from "cli-table";
 import { platformInfo } from "./platforminfo";
@@ -24,6 +25,7 @@ import {
   execCallbackFunction,
   execSyncFasterFunction,
   execSyncFunction,
+  mergeResults,
 } from "./base";
 
 export class Benchmark {
@@ -91,7 +93,109 @@ export class Benchmark {
     }
   }
 
+  /**
+   * 开始执行
+   */
   public async run(): Promise<Result> {
+    if (this.options.clusterMode) {
+      if (cluster.isMaster) {
+        return this.runOnMasterMode();
+      } else {
+        return this.runOnClusterMode();
+      }
+    } else {
+      return this.runOnNormalMode();
+    }
+  }
+
+  /**
+   * 执行并打印结果，然后退出
+   */
+  public async runAndPrint() {
+    if (this.options.clusterMode && cluster.isWorker) {
+      await this.run();
+      process.exit();
+    } else {
+      try {
+        const result = await this.run();
+        this.print(result);
+      } catch (err) {
+        console.log(err);
+      }
+      await sleep(1000);
+      process.exit();
+    }
+  }
+
+  protected async runOnMasterMode(): Promise<Result> {
+    console.log("start cluster mode, cluster count is %s", this.options.clusterCount);
+    const concurrent = Math.ceil(this.options.concurrent / this.options.clusterCount);
+    const workerList: cluster.Worker[] = [];
+    const resultList: Result[] = [];
+    const waitList: Promise<any>[] = [];
+    const fork = (id: number) => {
+      return new Promise(resolve => {
+        const p = cluster.fork();
+        workerList.push(p);
+        console.log("  - cluster #%s, PID is %s", id, p.process.pid);
+        p.on("message", msg => {
+          if (msg.type === "ready") {
+            console.log("  - cluster #%s, ready", id);
+            p.send({ type: "start", data: { concurrent } });
+          } else if (msg.type === "result") {
+            resultList.push(msg.data);
+            resolve();
+          } else if (msg.type === "error") {
+            console.log("  - cluster #%s, error: %s", id, msg.data);
+          } else {
+            console.log("  - cluster #%s, message: %j", id, msg);
+          }
+        });
+        p.on("error", err => {
+          console.log("  - cluster #%s, error:", id, err);
+        });
+        p.on("exit", () => {
+          console.log("  - cluster #%s, exited", id);
+        });
+      });
+    };
+    for (let i = 0; i < this.options.clusterCount; i++) {
+      waitList.push(fork(i + 1));
+    }
+    await Promise.all(waitList);
+    workerList.forEach(w => w.kill());
+    resultList.forEach(r => console.log(r.list));
+    this.result = mergeResults(resultList);
+    console.log(this.result.list);
+    return this.result;
+  }
+
+  protected async runOnClusterMode(): Promise<Result> {
+    return new Promise((resolve, reject) => {
+      console.log("cluster PID#%s ready", process.pid);
+      process.send!({ type: "ready" });
+      process.on("message", msg => {
+        if (msg.type === "start") {
+          const { concurrent } = msg.data;
+          console.log("cluster PID#%s start, concurrent is %s", process.pid, concurrent);
+          this.options.concurrent = concurrent;
+          this.runOnNormalMode()
+            .then(result => {
+              process.send!({ type: "result", data: result });
+              resolve(result);
+            })
+            .catch(err => {
+              process.send!({ type: "error", data: err });
+              reject(err);
+            });
+        } else {
+          console.log("cluster PID#%s start, message: %j", process.pid, msg);
+        }
+      });
+    });
+  }
+
+  protected async runOnNormalMode(): Promise<Result> {
     const list: TaskResult[] = [];
     for (let i = 0; i < this.list.length; i++) {
       const t = this.list[i];
@@ -106,6 +210,10 @@ export class Benchmark {
     return this.result;
   }
 
+  /**
+   * 打印结果
+   * @param result
+   */
   public print(result: Result | undefined = this.result): this {
     if (!result) {
       console.log(colors.red("Please run benchmark firstly"));
@@ -121,14 +229,26 @@ export class Benchmark {
       const successTasks = result.list.filter(v => v.ok);
       successTasks.forEach(v => {
         const count = v.result!.count;
-        const seconds = v.result!.seconds;
-        const rps = count / seconds;
+        let seconds = v.result!.seconds;
+        let rps = count / seconds;
         const nsop = ((1 / rps) * 1000000000).toFixed(1);
-        t.push([v.task!.title, rps.toFixed(1), nsop, `${seconds.toFixed(3)}s`]);
+        if (this.options.clusterMode) {
+          t.push([
+            v.task!.title,
+            (rps * this.options.clusterCount).toFixed(1),
+            nsop,
+            `${(seconds / this.options.clusterCount).toFixed(3)}s`,
+          ]);
+        } else {
+          t.push([v.task!.title, rps.toFixed(1), nsop, `${seconds.toFixed(3)}s`]);
+        }
       });
       if (successTasks.length > 0) {
         console.log("\n");
-        console.log(colors.blue("%s tests success:"), successTasks.length);
+        console.log(colors.blue("%s tests success"), successTasks.length);
+        if (this.options.clusterMode) {
+          console.log(colors.blue("total %s cluster"), this.options.clusterCount);
+        }
         console.log(colors.green(t.toString()));
       }
     }
