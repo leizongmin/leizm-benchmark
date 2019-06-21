@@ -58,32 +58,28 @@ export class Benchmark {
     return this;
   }
 
-  protected async runTask(index: number): Promise<TaskResult> {
+  protected async runTask(index: number, seconds: number = this.options.seconds): Promise<TaskResult> {
     const task = this.list[index];
     if (!task) return { ok: false, message: `task #${index} not exists` };
     try {
       let result: ExecTaskResult;
       switch (task.type) {
         case TaskFunctionType.Sync:
-          result = await execSyncFunction(this.options.seconds, task.fn as TaskSyncFunction, this.options.concurrent);
+          result = await execSyncFunction(seconds, task.fn as TaskSyncFunction, this.options.concurrent);
           break;
         case TaskFunctionType.SyncFaster:
           result = await execSyncFasterFunction(
-            this.options.seconds,
+            seconds,
             task.fn as TaskSyncFunction,
             this.options.concurrent,
             task.params,
           );
           break;
         case TaskFunctionType.Async:
-          result = await execAsyncFunction(this.options.seconds, task.fn as TaskAsyncFunction, this.options.concurrent);
+          result = await execAsyncFunction(seconds, task.fn as TaskAsyncFunction, this.options.concurrent);
           break;
         case TaskFunctionType.Callback:
-          result = await execCallbackFunction(
-            this.options.seconds,
-            task.fn as TaskCallbackFunction,
-            this.options.concurrent,
-          );
+          result = await execCallbackFunction(seconds, task.fn as TaskCallbackFunction, this.options.concurrent);
           break;
         default:
           throw new Error(`invalid task type: ${task.type}`);
@@ -203,6 +199,11 @@ export class Benchmark {
       const t = this.list[i];
       await sleep(this.options.delay * 1000);
       log("start test #%d: %s", i, t.title);
+      if (this.options.preheat > 0) {
+        log("  - preheat");
+        await this.runTask(i, this.options.preheat);
+        log("  - start");
+      }
       const ret = await this.runTask(i);
       list.push(ret);
       log("  - finish #%d", i);

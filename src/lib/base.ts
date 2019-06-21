@@ -13,12 +13,14 @@ import { sleep } from "./sleep";
 export interface Options {
   /** 标题 */
   title: string;
-  /** 每个任务执行时长 */
+  /** 每个任务执行时长（秒） */
   seconds: number;
   /** 并发数量（异步任务时有效） */
   concurrent: number;
-  /** 每个任务间隔 */
+  /** 每个任务间隔（秒） */
   delay: number;
+  /** 预热时间（秒） */
+  preheat: number;
   /** 是否开启多进程，默认不开启 */
   clusterMode: boolean;
   /** 子进程数量，默认为CPU总数 */
@@ -30,6 +32,7 @@ export const DEFAULT_OPTIONS: Options = {
   seconds: 2,
   concurrent: 100,
   delay: 1,
+  preheat: 0,
   clusterMode: false,
   clusterCount: os.cpus().length,
 };
