@@ -6,7 +6,7 @@
 
 import * as os from "os";
 
-export default function platformInfo(): string {
+export function platformInfo(): string {
   const lines = [];
   lines.push("Platform info:");
   lines.push("- " + os.type() + " " + os.release() + " " + os.arch());

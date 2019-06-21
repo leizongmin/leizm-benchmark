@@ -1,5 +1,4 @@
-import Benchmark from "../lib";
-import sleep from "../lib/sleep";
+import Benchmark, { sleep } from "../lib";
 
 const b = new Benchmark({ title: "Benchmark Example" });
 b.addAsync("async task", async () => await sleep(0))
