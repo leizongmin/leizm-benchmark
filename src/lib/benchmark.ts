@@ -27,6 +27,7 @@ import {
   execSyncFunction,
   mergeResults,
 } from "./base";
+import { log } from "./log";
 
 export class Benchmark {
   protected options: Options;
@@ -121,7 +122,7 @@ export class Benchmark {
         await sleep(1000);
         this.print(result);
       } catch (err) {
-        console.log(err);
+        log(err);
       }
       await sleep(0);
       process.exit();
@@ -129,7 +130,7 @@ export class Benchmark {
   }
 
   protected async runOnMasterMode(): Promise<Result> {
-    console.log("start cluster mode, cluster count is %s", this.options.clusterCount);
+    log("start cluster mode, cluster count is %s", this.options.clusterCount);
     const concurrent = Math.ceil(this.options.concurrent / this.options.clusterCount);
     const workerList: cluster.Worker[] = [];
     const resultList: Result[] = [];
@@ -138,25 +139,25 @@ export class Benchmark {
       return new Promise(resolve => {
         const p = cluster.fork();
         workerList.push(p);
-        console.log("  - cluster #%s, PID is %s", id, p.process.pid);
+        log("  - cluster #%s, PID is %s", id, p.process.pid);
         p.on("message", msg => {
           if (msg.type === "ready") {
-            console.log("  - cluster #%s, ready", id);
+            log("  - cluster #%s, ready", id);
             p.send({ type: "start", data: { concurrent } });
           } else if (msg.type === "result") {
             resultList.push(msg.data);
             resolve();
           } else if (msg.type === "error") {
-            console.log("  - cluster #%s, error: %s", id, msg.data);
+            log("  - cluster #%s, error: %s", id, msg.data);
           } else {
-            console.log("  - cluster #%s, message: %j", id, msg);
+            log("  - cluster #%s, message: %j", id, msg);
           }
         });
         p.on("error", err => {
-          console.log("  - cluster #%s, error:", id, err);
+          log("  - cluster #%s, error:", id, err);
         });
         p.on("exit", () => {
-          console.log("  - cluster #%s, exited", id);
+          log("  - cluster #%s, exited", id);
         });
       });
     };
@@ -165,20 +166,20 @@ export class Benchmark {
     }
     await Promise.all(waitList);
     workerList.forEach(w => w.kill());
-    resultList.forEach(r => console.log(r.list));
+    resultList.forEach(r => log(r.list));
     this.result = mergeResults(resultList);
-    console.log(this.result.list);
+    log(this.result.list);
     return this.result;
   }
 
   protected async runOnClusterMode(): Promise<Result> {
     return new Promise((resolve, reject) => {
-      console.log("cluster PID#%s ready", process.pid);
+      log("cluster PID#%s ready", process.pid);
       process.send!({ type: "ready" });
       process.on("message", msg => {
         if (msg.type === "start") {
           const { concurrent } = msg.data;
-          console.log("cluster PID#%s start, concurrent is %s", process.pid, concurrent);
+          log("cluster PID#%s start, concurrent is %s", process.pid, concurrent);
           this.options.concurrent = concurrent;
           this.runOnNormalMode()
             .then(result => {
@@ -190,7 +191,7 @@ export class Benchmark {
               reject(err);
             });
         } else {
-          console.log("cluster PID#%s start, message: %j", process.pid, msg);
+          log("cluster PID#%s start, message: %j", process.pid, msg);
         }
       });
     });
@@ -201,12 +202,12 @@ export class Benchmark {
     for (let i = 0; i < this.list.length; i++) {
       const t = this.list[i];
       await sleep(this.options.delay * 1000);
-      console.log("start test #%d: %s", i, t.title);
+      log("start test #%d: %s", i, t.title);
       const ret = await this.runTask(i);
       list.push(ret);
-      console.log("  - finish #%d", i);
+      log("  - finish #%d", i);
     }
-    console.log("done");
+    log("done");
     this.result = { ...this.options, list };
     return this.result;
   }
