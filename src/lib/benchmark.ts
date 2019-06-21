@@ -118,11 +118,12 @@ export class Benchmark {
     } else {
       try {
         const result = await this.run();
+        await sleep(1000);
         this.print(result);
       } catch (err) {
         console.log(err);
       }
-      await sleep(1000);
+      await sleep(0);
       process.exit();
     }
   }
