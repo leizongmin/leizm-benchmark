@@ -1,6 +1,6 @@
 # @leizm/benchmark
 
-简单性能测试框架
+简单性能测试框架，支持多进程执行和预热。
 
 ## 安装
 
@@ -22,9 +22,7 @@ b.addAsync("async task", async () => await sleep(0))
       // ... 针对性能损坏极小的同步任务，使用 for 来循环 count 次
     }
   })
-  .run()
-  .then(r => b.print(r))
-  .catch(console.log);
+  .runAndPrint();
 
 function sleep(ms: number): Promise<number> {
   return new Promise(resolve => {
@@ -34,6 +32,27 @@ function sleep(ms: number): Promise<number> {
 ```
 
 **注意：`addAsync()` 和 `addCallback()` 中的任务必须是真正的异步函数，否则可能造成进程卡死**
+
+## 选项
+
+```typescript
+export interface Options {
+  /** 标题 */
+  title: string;
+  /** 每个任务执行时长（秒） */
+  seconds: number;
+  /** 并发数量（异步任务时有效） */
+  concurrent: number;
+  /** 每个任务间隔（秒） */
+  delay: number;
+  /** 预热时间（秒） */
+  preheat: number;
+  /** 是否开启多进程，默认不开启 */
+  clusterMode: boolean;
+  /** 子进程数量，默认为CPU总数 */
+  clusterCount: number;
+}
+```
 
 ## License
 
