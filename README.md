@@ -31,6 +31,13 @@ function sleep(ms: number): Promise<number> {
 }
 ```
 
+支持四种任务类型：
+
+- `addAsync(title, async () => void)` 添加 `async function`，需要返回 Promise
+- `addCallback(title, (callback) => void)` 添加异步回调函数
+- `addSync(title, () => void)` 添加阻塞函数
+- `addSyncFaster(title, (count) => void)` 添加阻塞函数，函数内部通过 for 循环运算
+
 **注意：`addAsync()` 和 `addCallback()` 中的任务必须是真正的异步函数，否则可能造成进程卡死**
 
 ## 选项
